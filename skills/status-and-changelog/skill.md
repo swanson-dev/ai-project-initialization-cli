@@ -9,4 +9,4 @@
 - Changelog entry describing user-impacting changes.
 
 ## Output location
-- Save under `/docs/07-status/`.
+- Agents MUST write all status updates and changelog entries to `/docs/07-status/`.

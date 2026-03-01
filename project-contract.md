@@ -28,11 +28,7 @@ Generated repositories MUST include the following metadata/governance files at m
 - `USAGE.md`
 - `project-contract.md`
 
-If this registry is materialized in full, it SHOULD also include:
-
-- `manifest.json`
-- `manifest-schema.md`
-- `CONTRIBUTING.md`
+Repository meta-files remain registry-level governance artifacts and are intentionally excluded from initialized project outputs unless explicitly mapped by policy.
 
 ## Contract rules
 
