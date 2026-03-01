@@ -36,7 +36,7 @@ If this registry is materialized in full, it SHOULD also include:
 
 ## Contract rules
 
-- No implementation code may exist outside `/app`.
+- Implementation code MUST NOT exist outside `/app`.
 - Planning artifacts MUST precede implementation.
 - UI changes MUST pass mockup + explicit approval before UI implementation.
 - Feature delivery MUST include required doc updates.

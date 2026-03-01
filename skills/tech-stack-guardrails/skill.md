@@ -2,7 +2,7 @@
 
 ## Triggers
 - When selecting or changing runtime, framework, or language.
-- When tooling additions may introduce drift.
+- When tooling additions introduce potential stack drift.
 
 ## Required outputs
 - Compliance check against selected recipe.
