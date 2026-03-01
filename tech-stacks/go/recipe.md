@@ -11,7 +11,7 @@
 ## Recommended tools
 - `go fmt`
 - `go test`
-- `golangci-lint` (or equivalent)
+- `golangci-lint`
 - `air` or similar local reload tool (optional)
 
 ## Forbidden deviations

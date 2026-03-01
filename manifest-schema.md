@@ -13,7 +13,7 @@ This document describes the current shape of `manifest.json` used in Phase 2.
 - `skills` (array): skill records.
 - `tech_stack_recipes` (array): tech recipe records.
 - `file_templates` (array): template records.
-- `registry_docs` (array): required registry-level documentation.
+- `registry_docs` (array): required registry-level documentation explicitly intended for initialized project output.
 
 ## Record shape
 
@@ -26,5 +26,9 @@ Each record uses:
 
 - No wildcard paths.
 - Every referenced path MUST exist.
-- Paths SHOULD be explicitly enumerated for policy-critical assets.
+- Paths MUST be explicitly enumerated for policy-critical assets.
 - MVP scaffold scope remains one scaffold (`standard-planning-plus-code`).
+
+## Registry-level documentation clarification
+
+Repository-level documentation files such as `README.md`, `CONTRIBUTING.md`, `USAGE.md`, and `manifest-schema.md` are repository governance artifacts. These files are NOT required to be referenced in `manifest.json` and are NOT copied into initialized projects unless explicitly added to manifest output mappings.
