@@ -2,7 +2,7 @@
   "name": "@codebasedesigns/project-os",
   "version": "0.0.1",
   "description": "Documentation-first project initializer",
-  "type": "commonjs",
+  "type": "module",
   "bin": {
     "project-os": "bin/index.js"
   },

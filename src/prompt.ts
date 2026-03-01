@@ -1,40 +1,48 @@
-import inquirer from 'inquirer';
-import { Manifest, UserSelections } from './types';
+import inquirer from "inquirer";
+import { Manifest, UserSelections } from "./types.js";
 
-export async function promptSelections(manifest: Manifest, yes: boolean): Promise<UserSelections> {
+export async function promptSelections(
+  manifest: Manifest,
+  yes: boolean,
+): Promise<UserSelections> {
   const techChoices = manifest.tech_stack_recipes.map((recipe) => recipe.id);
-  const productPacks = (manifest.product_type_packs ?? []).map((pack) => pack.id);
+  const productPacks = (manifest.product_type_packs ?? []).map(
+    (pack) => pack.id,
+  );
   const skillChoices = manifest.skills.map((skill) => skill.id);
 
   if (yes) {
     return {
-      description: 'TODO: Add project description',
-      preferredTechnology: techChoices[0] ?? '',
-      productPackId: '',
+      description: "TODO: Add project description",
+      preferredTechnology: techChoices[0] ?? "",
+      productPackId: "",
       selectedSkillIds: [...skillChoices],
     };
   }
 
-  const { descriptionMode } = await inquirer.prompt<{ descriptionMode: 'provide' | 'generate' }>([
+  const { descriptionMode } = await inquirer.prompt<{
+    descriptionMode: "provide" | "generate";
+  }>([
     {
-      type: 'list',
-      name: 'descriptionMode',
-      message: 'Project description:',
+      type: "list",
+      name: "descriptionMode",
+      message: "Project description:",
       choices: [
-        { name: 'Provide description', value: 'provide' },
-        { name: 'Generate placeholder', value: 'generate' },
+        { name: "Provide description", value: "provide" },
+        { name: "Generate placeholder", value: "generate" },
       ],
     },
   ]);
 
-  let description = 'TODO: Add project description';
-  if (descriptionMode === 'provide') {
+  let description = "TODO: Add project description";
+  if (descriptionMode === "provide") {
     const answer = await inquirer.prompt<{ description: string }>([
       {
-        type: 'input',
-        name: 'description',
-        message: 'Enter project description:',
-        validate: (value) => (value.trim().length > 0 ? true : 'Description is required'),
+        type: "input",
+        name: "description",
+        message: "Enter project description:",
+        validate: (value: string) =>
+          value.trim().length > 0 ? true : "Description is required",
       },
     ]);
     description = answer.description.trim();
@@ -46,22 +54,22 @@ export async function promptSelections(manifest: Manifest, yes: boolean): Promis
     selectedSkillIds: string[];
   }>([
     {
-      type: 'list',
-      name: 'preferredTechnology',
-      message: 'Preferred technology:',
+      type: "list",
+      name: "preferredTechnology",
+      message: "Preferred technology:",
       choices: techChoices,
     },
     {
-      type: 'list',
-      name: 'productPackId',
-      message: 'Product pack:',
-      choices: ['none', ...productPacks],
-      default: 'none',
+      type: "list",
+      name: "productPackId",
+      message: "Product pack:",
+      choices: ["none", ...productPacks],
+      default: "none",
     },
     {
-      type: 'checkbox',
-      name: 'selectedSkillIds',
-      message: 'Skills selection:',
+      type: "checkbox",
+      name: "selectedSkillIds",
+      message: "Skills selection:",
       choices: skillChoices,
       default: [...skillChoices],
     },
@@ -70,7 +78,8 @@ export async function promptSelections(manifest: Manifest, yes: boolean): Promis
   return {
     description,
     preferredTechnology: answers.preferredTechnology,
-    productPackId: answers.productPackId === 'none' ? '' : answers.productPackId,
+    productPackId:
+      answers.productPackId === "none" ? "" : answers.productPackId,
     selectedSkillIds: answers.selectedSkillIds,
   };
 }
