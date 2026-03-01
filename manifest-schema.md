@@ -31,4 +31,4 @@ Each record uses:
 
 ## Registry-level documentation clarification
 
-Repository-level documentation files such as `README.md`, `CONTRIBUTING.md`, `USAGE.md`, and `manifest-schema.md` are repository governance artifacts. These files are NOT required to be referenced in `manifest.json` and are NOT copied into initialized projects unless explicitly added to manifest output mappings.
+Registry meta-files such as `manifest.json`, `manifest-schema.md`, `README.md`, `CONTRIBUTING.md`, and `USAGE.md` are repository governance artifacts. These files are intentionally excluded from `manifest.json` unless a registry policy explicitly adds them to project output mappings.
