@@ -1,7 +1,7 @@
 import { Manifest, RegistrySource } from './types';
 
 const DEFAULT_OWNER = 'swanson-dev';
-const DEFAULT_REPO = 'ai-project-initialization-registry';
+const DEFAULT_REPO = 'ai-project-initialization';
 
 export function resolveRegistrySource(ref: string, registryOverride?: string): RegistrySource {
   if (registryOverride) {
