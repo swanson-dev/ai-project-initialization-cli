@@ -38,6 +38,24 @@ export type CopyPlanItem = {
   destAbs: string;
 };
 
+export type SelectedAssetsSource = {
+  registry: {
+    owner: string | null;
+    repo: string | null;
+    ref: string;
+    raw_base: string;
+    is_override: boolean;
+  };
+};
+
+export type SelectedAssetsTooling = {
+  manifest_contract_version_used_by_cli: '1';
+  cli: {
+    name: string;
+    version: string;
+  };
+};
+
 export type SelectedAssetsPayload = {
   registry_version: string;
   published_at: string | null;
@@ -46,8 +64,16 @@ export type SelectedAssetsPayload = {
   project: {
     project_id: null;
     name: string;
+    description: string;
+    preferred_technology: string;
+    product_type: string;
+    selected_skills: string[];
+    initialized_at: string;
+    cli_version: string;
+    code_location: '/app';
   };
   source?: SelectedAssetsSource;
+  tooling?: SelectedAssetsTooling;
   selected: {
     scaffold: string;
     tech_stack_recipe: string;
@@ -72,16 +98,6 @@ export type SelectedAssetsPayload = {
     instantiated_docs: string[];
     metadata_files: string[];
     hashes?: SelectedAssetsHashEntry[];
-  };
-};
-
-export type SelectedAssetsSource = {
-  registry: {
-    owner: string | null;
-    repo: string | null;
-    ref: string;
-    raw_base: string;
-    is_override: boolean;
   };
 };
 

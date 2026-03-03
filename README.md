@@ -32,7 +32,7 @@ Re-baselines `outputs.hashes` in `.project/selected-assets.json` against current
 
 ### `project-os reconcile`
 
-Repairs provenance-managed copied files and instantiated docs back to registry/provenance truth.
+Repairs provenance-managed copied files, instantiated docs, `.project/project.config.json`, and `.project/bootstrap.lock` back to registry/provenance truth.
 
 ## Examples
 
@@ -57,7 +57,8 @@ project-os reconcile --strict --delete-extra --yes
 
 - `freeze` only mutates `.project/selected-assets.json`
 - `reconcile` is dry-run by default
-- `reconcile` does not repair user-authored or unreconstructable files such as `README.md`, `.env.init`, `.gitignore`, `.project/bootstrap.lock`, or `.project/project.config.json`
+- `reconcile` does not repair user-authored files such as `README.md`, `.env.init`, `.gitignore`, or `agents/manifest.json`
+- `reconcile` still excludes `.project/bootstrap.lock` from hash verification even though it can now reconstruct and rewrite it
 - `doctor --hash` requires `outputs.hashes` in `.project/selected-assets.json`
 
 ## Exit behavior

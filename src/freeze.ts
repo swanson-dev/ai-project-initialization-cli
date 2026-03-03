@@ -138,6 +138,8 @@ function buildUpdatedSelectedAssetsPayload(
     contract_version: payload.contract_version,
     created_at: payload.created_at,
     project: payload.project,
+    source: payload.source,
+    tooling: payload.tooling,
     selected: payload.selected,
     materialization: payload.materialization,
     outputs: {

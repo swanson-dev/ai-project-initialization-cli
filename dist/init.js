@@ -161,6 +161,9 @@ export async function runInit(options) {
                 scaffoldId: 'standard-planning-plus-code',
                 techStackRecipeId: selections.preferredTechnology,
                 productPackId: selections.productPackId || undefined,
+                description: selections.description,
+                preferredTechnology: selections.preferredTechnology,
+                selectedSkillIds: selections.selectedSkillIds,
                 copiedPaths: [...copied, ...materializedPaths],
                 instantiatedDocs: instantiated,
                 metadataFiles: projectMetadataFiles,
@@ -173,6 +176,11 @@ export async function runInit(options) {
                     ref: source.refUsed,
                     rawBase: source.rawBase,
                     isOverride: source.isOverride,
+                },
+                tooling: {
+                    manifestContractVersionUsedByCli: '1',
+                    cliName: CLI_NAME,
+                    cliVersion: CLI_VERSION,
                 },
                 hashes,
             };

@@ -384,7 +384,7 @@ test('reconcile rolls back on mid-write failure and preserves prior state', asyn
   });
 });
 
-test('reconcile skips missing project config in dry-run and blocks apply', async () => {
+test('reconcile repairs missing project config in dry-run and apply mode', async () => {
   await withTempRepo(async (repoPath) => {
     const restoreFetch = installFetchMock(createFetchOverrides(createManifest()));
     try {
@@ -393,11 +393,188 @@ test('reconcile skips missing project config in dry-run and blocks apply', async
 
       const dryRun = await runReconcile(repoPath, DEFAULT_RECONCILE_OPTIONS);
       assert.equal(dryRun.status, 'dry_run');
+      assert.deepEqual(dryRun.planned.write, ['.project/project.config.json', '.project/selected-assets.json']);
+      assert.deepEqual(dryRun.planned.skip, []);
+
+      const apply = await runReconcile(repoPath, { ...DEFAULT_RECONCILE_OPTIONS, yes: true });
+      assert.equal(apply.status, 'reconciled');
+      const projectConfig = JSON.parse(
+        await fs.readFile(path.join(repoPath, '.project', 'project.config.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.deepEqual(projectConfig, {
+        project_name: path.basename(repoPath),
+        description: 'TODO: Add project description',
+        preferred_technology: 'nextjs',
+        product_type: '',
+        selected_skills: ['documentation-hygiene'],
+        registry_version: '0.2.0',
+        registry_ref: 'main',
+        registry_owner: 'swanson-dev',
+        registry_repo: 'ai-project-initialization-registry',
+        cli_version: '0.0.1',
+        initialized_at: JSON.parse(
+          await fs.readFile(path.join(repoPath, '.project', 'selected-assets.json'), 'utf8'),
+        ).created_at,
+        code_location: '/app',
+      });
+
+      const doctorResult = await runDoctor(repoPath, {
+        json: false,
+        verbose: false,
+        roots: false,
+        strict: false,
+        hash: true,
+      });
+      assert.equal(doctorResult.status, 'clean');
+    } finally {
+      restoreFetch();
+    }
+  });
+});
+
+test('reconcile repairs mismatched project config and updates hashes', async () => {
+  await withTempRepo(async (repoPath) => {
+    const restoreFetch = installFetchMock(createFetchOverrides(createManifest()));
+    try {
+      await initializeProject(repoPath);
+      const projectConfigPath = path.join(repoPath, '.project', 'project.config.json');
+      const changedConfig = JSON.parse(await fs.readFile(projectConfigPath, 'utf8')) as Record<string, unknown>;
+      changedConfig.description = 'Changed description';
+      await fs.writeFile(projectConfigPath, JSON.stringify(changedConfig, null, 2) + '\n', 'utf8');
+
+      const result = await runReconcile(repoPath, { ...DEFAULT_RECONCILE_OPTIONS, yes: true });
+      assert.equal(result.status, 'reconciled');
+
+      const repairedConfig = JSON.parse(await fs.readFile(projectConfigPath, 'utf8')) as Record<string, unknown>;
+      assert.equal(repairedConfig.description, 'TODO: Add project description');
+
+      const doctorResult = await runDoctor(repoPath, {
+        json: false,
+        verbose: false,
+        roots: false,
+        strict: false,
+        hash: true,
+      });
+      assert.equal(doctorResult.status, 'clean');
+    } finally {
+      restoreFetch();
+    }
+  });
+});
+
+test('reconcile repairs missing bootstrap lock in dry-run and apply mode', async () => {
+  await withTempRepo(async (repoPath) => {
+    const restoreFetch = installFetchMock(createFetchOverrides(createManifest()));
+    try {
+      await initializeProject(repoPath);
+      await fs.rm(path.join(repoPath, '.project', 'bootstrap.lock'));
+
+      const dryRun = await runReconcile(repoPath, DEFAULT_RECONCILE_OPTIONS);
+      assert.equal(dryRun.status, 'dry_run');
+      assert.deepEqual(dryRun.planned.write, ['.project/bootstrap.lock', '.project/selected-assets.json']);
+      assert.deepEqual(dryRun.planned.skip, []);
+
+      const apply = await runReconcile(repoPath, { ...DEFAULT_RECONCILE_OPTIONS, yes: true });
+      assert.equal(apply.status, 'reconciled');
+
+      const bootstrapLock = JSON.parse(
+        await fs.readFile(path.join(repoPath, '.project', 'bootstrap.lock'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.deepEqual(bootstrapLock, {
+        registry: {
+          version: '0.2.0',
+          published_at: '2026-03-01T00:00:00Z',
+          contract_version: '1',
+        },
+        selection: {
+          scaffold: 'standard-planning-plus-code',
+          tech_stack_recipe: 'nextjs',
+          agent_packs: ['core'],
+          skills: ['documentation-hygiene'],
+          product_type_packs: [],
+          registry_docs: ['project-contract'],
+          file_templates: ['project-brief'],
+        },
+        instantiated_docs: TEMPLATE_FIXTURES.map((template) => ({
+          template_id: template.id,
+          target: template.target,
+        })),
+        manifest_contract_version_used_by_cli: '1',
+        cli: {
+          name: '@codebasedesigns/project-os',
+          version: '0.0.1',
+        },
+      });
+    } finally {
+      restoreFetch();
+    }
+  });
+});
+
+test('reconcile keeps legacy skip behavior for project config when selected-assets lacks reconstructable project metadata', async () => {
+  await withTempRepo(async (repoPath) => {
+    const restoreFetch = installFetchMock(createFetchOverrides(createManifest()));
+    try {
+      await initializeProject(repoPath);
+      const selectedAssetsPath = path.join(repoPath, '.project', 'selected-assets.json');
+      const selectedAssets = JSON.parse(await fs.readFile(selectedAssetsPath, 'utf8')) as Record<string, unknown>;
+      const project = { ...(selectedAssets.project as Record<string, unknown>) };
+      delete project.description;
+      delete project.preferred_technology;
+      delete project.product_type;
+      delete project.selected_skills;
+      delete project.initialized_at;
+      delete project.cli_version;
+      delete project.code_location;
+      selectedAssets.project = project;
+      await fs.writeFile(selectedAssetsPath, JSON.stringify(selectedAssets, null, 2) + '\n', 'utf8');
+      await fs.rm(path.join(repoPath, '.project', 'project.config.json'));
+
+      const dryRun = await runReconcile(repoPath, DEFAULT_RECONCILE_OPTIONS);
+      assert.equal(dryRun.status, 'dry_run');
       assert.deepEqual(dryRun.planned.skip, ['.project/project.config.json']);
+      assert.match(
+        dryRun.notes.join('\n'),
+        /selected-assets\.json does not include enough project metadata to reconstruct \.project\/project\.config\.json/,
+      );
 
       const apply = await runReconcile(repoPath, { ...DEFAULT_RECONCILE_OPTIONS, yes: true });
       assert.equal(apply.status, 'error');
-      assert.match(apply.notes.join('\n'), /reconcile cannot safely repair unreconstructable provenance-managed file: \.project\/project\.config\.json/);
+      assert.match(
+        apply.notes.join('\n'),
+        /selected-assets\.json does not include enough project metadata to reconstruct \.project\/project\.config\.json/,
+      );
+    } finally {
+      restoreFetch();
+    }
+  });
+});
+
+test('reconcile keeps legacy skip behavior for bootstrap lock when selected-assets lacks tooling metadata', async () => {
+  await withTempRepo(async (repoPath) => {
+    const restoreFetch = installFetchMock(createFetchOverrides(createManifest()));
+    try {
+      await initializeProject(repoPath);
+      const selectedAssetsPath = path.join(repoPath, '.project', 'selected-assets.json');
+      const selectedAssets = JSON.parse(await fs.readFile(selectedAssetsPath, 'utf8')) as Record<string, unknown>;
+      delete selectedAssets.tooling;
+      await fs.writeFile(selectedAssetsPath, JSON.stringify(selectedAssets, null, 2) + '\n', 'utf8');
+      await fs.rm(path.join(repoPath, '.project', 'bootstrap.lock'));
+
+      const dryRun = await runReconcile(repoPath, DEFAULT_RECONCILE_OPTIONS);
+      assert.equal(dryRun.status, 'dry_run');
+      assert.deepEqual(dryRun.planned.skip, ['.project/bootstrap.lock']);
+      assert.match(
+        dryRun.notes.join('\n'),
+        /selected-assets\.json does not include enough tooling metadata to reconstruct \.project\/bootstrap\.lock/,
+      );
+
+      const apply = await runReconcile(repoPath, { ...DEFAULT_RECONCILE_OPTIONS, yes: true });
+      assert.equal(apply.status, 'error');
+      assert.match(
+        apply.notes.join('\n'),
+        /selected-assets\.json does not include enough tooling metadata to reconstruct \.project\/bootstrap\.lock/,
+      );
     } finally {
       restoreFetch();
     }

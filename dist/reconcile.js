@@ -7,6 +7,8 @@ import { computeFileHashes, computeSingleFileHash, getHashEligibleExpectedPaths,
 import { planTemplateInstantiation } from './instantiate-templates.js';
 import { planRawMaterialization } from './materialize-raw-assets.js';
 import { planComposePaths } from './compose.js';
+import { buildProjectConfigPayload } from './metadata.js';
+import { buildBootstrapLockPayloadFromSelectedAssets } from './provenance.js';
 import { createWriteContext, ensureTrackedDir, recordCreatedFile, rollbackWriteContext } from './write-context.js';
 const PROVENANCE_PATH = '.project/selected-assets.json';
 const PROJECT_CONFIG_PATH = '.project/project.config.json';
@@ -168,6 +170,26 @@ function buildResolvedSelectionsFromPayload(payload) {
         fileTemplateIds: [...payload.selected.file_templates],
     };
 }
+function canRebuildProjectConfig(payload) {
+    const project = payload.project;
+    return (typeof project.description === 'string' &&
+        typeof project.preferred_technology === 'string' &&
+        typeof project.product_type === 'string' &&
+        Array.isArray(project.selected_skills) &&
+        project.selected_skills.every((entry) => typeof entry === 'string') &&
+        typeof project.initialized_at === 'string' &&
+        typeof project.cli_version === 'string' &&
+        project.code_location === '/app');
+}
+function canRebuildBootstrapLock(payload) {
+    return (payload.tooling !== undefined &&
+        payload.tooling.manifest_contract_version_used_by_cli === '1' &&
+        typeof payload.tooling.cli.name === 'string' &&
+        payload.tooling.cli.name.length > 0 &&
+        typeof payload.tooling.cli.version === 'string' &&
+        payload.tooling.cli.version.length > 0 &&
+        Array.isArray(payload.selected.instantiation_rules));
+}
 function buildManifestForReconcile(manifest, payload) {
     return {
         ...manifest,
@@ -316,7 +338,64 @@ async function planInstantiatedDocRepairs(source, manifest, payload, projectRoot
         mismatchedPaths: mismatchedPaths.sort((left, right) => left.localeCompare(right)),
     };
 }
-function planMetadataSkips(payload, missing, mismatched) {
+async function planProjectConfigRepair(payload, source, projectRoot) {
+    const metadataPaths = payload.outputs.metadata_files.map((item) => normalizeProjectRelativePath(item));
+    if (!metadataPaths.includes(PROJECT_CONFIG_PATH)) {
+        return { writeItem: null, mismatched: false };
+    }
+    const desiredBytes = Buffer.from(JSON.stringify(buildProjectConfigPayload({
+        description: payload.project.description,
+        preferredTechnology: payload.project.preferred_technology,
+        productPackId: payload.project.product_type,
+        selectedSkillIds: payload.project.selected_skills,
+        registryVersion: payload.registry_version,
+        registryRef: payload.source?.registry.ref ?? source.refUsed,
+        cliVersion: payload.project.cli_version,
+        createdAt: payload.project.initialized_at,
+        projectName: payload.project.name,
+    }), null, 2) + '\n', 'utf8');
+    const targetAbs = path.join(projectRoot, ...PROJECT_CONFIG_PATH.split('/'));
+    const currentBytes = await readBytesIfExists(targetAbs);
+    if (currentBytes && currentBytes.equals(desiredBytes)) {
+        return { writeItem: null, mismatched: false };
+    }
+    return {
+        writeItem: {
+            category: 'metadata',
+            targetRel: PROJECT_CONFIG_PATH,
+            targetAbs,
+            sourceRel: PROJECT_CONFIG_PATH,
+            desiredBytes,
+        },
+        mismatched: currentBytes !== null,
+    };
+}
+async function planBootstrapLockRepair(payload, projectRoot) {
+    const metadataPaths = payload.outputs.metadata_files.map((item) => normalizeProjectRelativePath(item));
+    if (!metadataPaths.includes(BOOTSTRAP_LOCK_PATH)) {
+        return { writeItem: null, mismatched: false };
+    }
+    if (!canRebuildBootstrapLock(payload)) {
+        return { writeItem: null, mismatched: false };
+    }
+    const desiredBytes = Buffer.from(JSON.stringify(buildBootstrapLockPayloadFromSelectedAssets(payload), null, 2) + '\n', 'utf8');
+    const targetAbs = path.join(projectRoot, ...BOOTSTRAP_LOCK_PATH.split('/'));
+    const currentBytes = await readBytesIfExists(targetAbs);
+    if (currentBytes && currentBytes.equals(desiredBytes)) {
+        return { writeItem: null, mismatched: false };
+    }
+    return {
+        writeItem: {
+            category: 'metadata',
+            targetRel: BOOTSTRAP_LOCK_PATH,
+            targetAbs,
+            sourceRel: BOOTSTRAP_LOCK_PATH,
+            desiredBytes,
+        },
+        mismatched: currentBytes !== null,
+    };
+}
+function planMetadataSkips(payload, missing, mismatched, repairableMetadata) {
     const missingSet = new Set(missing);
     const mismatchedSet = new Set(mismatched);
     const skipped = new Set();
@@ -326,6 +405,9 @@ function planMetadataSkips(payload, missing, mismatched) {
             continue;
         }
         if (relPath === '.project/selected-assets.json') {
+            continue;
+        }
+        if (repairableMetadata.has(relPath)) {
             continue;
         }
         skipped.add(relPath);
@@ -433,6 +515,7 @@ async function updateSelectedAssetsHashesAtomically(projectRoot, payload, hashes
         created_at: payload.created_at,
         project: payload.project,
         source: payload.source,
+        tooling: payload.tooling,
         selected: payload.selected,
         materialization: payload.materialization,
         outputs: {
@@ -511,6 +594,19 @@ export async function runReconcile(projectRoot, options) {
         const manifest = buildManifestForReconcile(fetchedManifest, payload);
         const copiedRepairs = await planCopiedRepairs(source, manifest, payload, projectRoot);
         const instantiatedRepairs = await planInstantiatedDocRepairs(source, manifest, payload, projectRoot);
+        const repairableMetadata = new Set();
+        const projectConfigRepair = canRebuildProjectConfig(payload)
+            ? await planProjectConfigRepair(payload, source, projectRoot)
+            : { writeItem: null, mismatched: false };
+        const bootstrapLockRepair = canRebuildBootstrapLock(payload)
+            ? await planBootstrapLockRepair(payload, projectRoot)
+            : { writeItem: null, mismatched: false };
+        if (canRebuildProjectConfig(payload)) {
+            repairableMetadata.add(PROJECT_CONFIG_PATH);
+        }
+        if (canRebuildBootstrapLock(payload)) {
+            repairableMetadata.add(BOOTSTRAP_LOCK_PATH);
+        }
         const unresolved = [...copiedRepairs.unresolvedPaths, ...instantiatedRepairs.unresolvedPaths].sort((left, right) => left.localeCompare(right));
         if (unresolved.length > 0) {
             return createResult('error', emptyPlan, emptyApplied, missing, [], [], [
@@ -523,14 +619,28 @@ export async function runReconcile(projectRoot, options) {
         for (const relPath of instantiatedRepairs.mismatchedPaths) {
             mismatchedSet.add(relPath);
         }
+        if (projectConfigRepair.mismatched) {
+            mismatchedSet.add(PROJECT_CONFIG_PATH);
+        }
+        if (bootstrapLockRepair.mismatched) {
+            mismatchedSet.add(BOOTSTRAP_LOCK_PATH);
+        }
         const mismatched = [...mismatchedSet].sort((left, right) => left.localeCompare(right));
-        const skipped = planMetadataSkips(payload, missing, mismatched);
+        const skipped = planMetadataSkips(payload, missing, mismatched, repairableMetadata);
         const skipNotes = buildSkipNotes(skipped);
+        if (!canRebuildProjectConfig(payload) && skipped.includes(PROJECT_CONFIG_PATH)) {
+            skipNotes.push('selected-assets.json does not include enough project metadata to reconstruct .project/project.config.json');
+        }
+        if (!canRebuildBootstrapLock(payload) && skipped.includes(BOOTSTRAP_LOCK_PATH)) {
+            skipNotes.push('selected-assets.json does not include enough tooling metadata to reconstruct .project/bootstrap.lock');
+        }
         const extra = options.strict ? filterReconcileExtras(await collectExtraPaths(projectRoot, expectedPathSet, getKnownRoots())) : [];
         const deleteTargets = getDeletePlan(extra, options);
         const repairWriteTargets = [
             ...copiedRepairs.writeItems.map((item) => item.targetRel),
             ...instantiatedRepairs.writeItems.map((item) => item.targetRel),
+            ...(projectConfigRepair.writeItem ? [projectConfigRepair.writeItem.targetRel] : []),
+            ...(bootstrapLockRepair.writeItem ? [bootstrapLockRepair.writeItem.targetRel] : []),
         ].sort((left, right) => left.localeCompare(right));
         const hashEligiblePaths = getHashEligibleExpectedPaths(payload.outputs);
         const eligiblePreviousHashes = filterHashesForEligiblePaths(payload.outputs.hashes, hashEligiblePaths);
@@ -609,7 +719,12 @@ export async function runReconcile(projectRoot, options) {
             skipped: [],
         };
         try {
-            const writePlan = [...copiedRepairs.writeItems, ...instantiatedRepairs.writeItems].sort((left, right) => left.targetRel.localeCompare(right.targetRel));
+            const writePlan = [
+                ...copiedRepairs.writeItems,
+                ...instantiatedRepairs.writeItems,
+                ...(projectConfigRepair.writeItem ? [projectConfigRepair.writeItem] : []),
+                ...(bootstrapLockRepair.writeItem ? [bootstrapLockRepair.writeItem] : []),
+            ].sort((left, right) => left.targetRel.localeCompare(right.targetRel));
             applied.written.push(...(await applyWritePlan(writePlan, transaction, projectRoot)));
             applied.deleted.push(...(await applyDeletePlan(deleteTargets.map((targetRel) => ({
                 targetRel,

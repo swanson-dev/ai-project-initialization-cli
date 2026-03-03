@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBootstrapLockPayload, buildSelectedAssetsPayload } from './provenance.js';
+import { buildBootstrapLockPayload, buildBootstrapLockPayloadFromSelectedAssets, buildSelectedAssetsPayload, } from './provenance.js';
 function createManifest() {
     return {
         version: '0.2.0',
@@ -43,6 +43,9 @@ test('buildSelectedAssetsPayload preserves ordering and sorted outputs', () => {
         resolvedSelections: createResolvedSelections(),
         scaffoldId: 'standard-planning-plus-code',
         techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
         copiedPaths: [
             'skills/documentation-hygiene/skill.md',
             'agent-packs/core/agent-guidelines.md',
@@ -64,6 +67,11 @@ test('buildSelectedAssetsPayload preserves ordering and sorted outputs', () => {
             rawBase: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
             isOverride: false,
         },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
+        },
         projectRoot: 'C:/temp/my-project',
     });
     assert.deepEqual(Object.keys(payload), [
@@ -73,12 +81,33 @@ test('buildSelectedAssetsPayload preserves ordering and sorted outputs', () => {
         'created_at',
         'project',
         'source',
+        'tooling',
         'selected',
         'materialization',
         'outputs',
     ]);
-    assert.equal(payload.project.project_id, null);
-    assert.equal(payload.project.name, 'my-project');
+    assert.deepEqual(Object.keys(payload.project), [
+        'project_id',
+        'name',
+        'description',
+        'preferred_technology',
+        'product_type',
+        'selected_skills',
+        'initialized_at',
+        'cli_version',
+        'code_location',
+    ]);
+    assert.deepEqual(payload.project, {
+        project_id: null,
+        name: 'my-project',
+        description: 'A generated project',
+        preferred_technology: 'nextjs',
+        product_type: '',
+        selected_skills: ['documentation-hygiene'],
+        initialized_at: '2026-03-02T00:00:00.000Z',
+        cli_version: '0.0.1',
+        code_location: '/app',
+    });
     assert.deepEqual(payload.source, {
         registry: {
             owner: 'swanson-dev',
@@ -86,6 +115,13 @@ test('buildSelectedAssetsPayload preserves ordering and sorted outputs', () => {
             ref: 'main',
             raw_base: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
             is_override: false,
+        },
+    });
+    assert.deepEqual(payload.tooling, {
+        manifest_contract_version_used_by_cli: '1',
+        cli: {
+            name: '@codebasedesigns/project-os',
+            version: '0.0.1',
         },
     });
     assert.deepEqual(payload.selected.agent_packs, ['core']);
@@ -119,6 +155,9 @@ test('buildSelectedAssetsPayload uses deterministic materialization defaults whe
         resolvedSelections: createResolvedSelections(),
         scaffoldId: 'standard-planning-plus-code',
         techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
         copiedPaths: [],
         instantiatedDocs: [],
         metadataFiles: [],
@@ -131,6 +170,11 @@ test('buildSelectedAssetsPayload uses deterministic materialization defaults whe
             ref: 'main',
             rawBase: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
             isOverride: false,
+        },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
         },
         projectRoot: 'C:/temp/my-project',
     });
@@ -147,6 +191,9 @@ test('buildBootstrapLockPayload preserves manifest instantiation order and stabl
         resolvedSelections: createResolvedSelections(),
         scaffoldId: 'standard-planning-plus-code',
         techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
         copiedPaths: [],
         instantiatedDocs: [],
         metadataFiles: [],
@@ -159,6 +206,11 @@ test('buildBootstrapLockPayload preserves manifest instantiation order and stabl
             ref: 'main',
             rawBase: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
             isOverride: false,
+        },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
         },
         projectRoot: 'C:/temp/my-project',
     });
@@ -183,6 +235,9 @@ test('buildSelectedAssetsPayload supports override source provenance', () => {
         resolvedSelections: createResolvedSelections(),
         scaffoldId: 'standard-planning-plus-code',
         techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
         copiedPaths: [],
         instantiatedDocs: [],
         metadataFiles: [],
@@ -196,6 +251,11 @@ test('buildSelectedAssetsPayload supports override source provenance', () => {
             rawBase: 'https://example.com/custom-registry',
             isOverride: true,
         },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
+        },
         projectRoot: 'C:/temp/my-project',
     });
     assert.deepEqual(payload.source, {
@@ -207,4 +267,63 @@ test('buildSelectedAssetsPayload supports override source provenance', () => {
             is_override: true,
         },
     });
+});
+test('buildBootstrapLockPayloadFromSelectedAssets reconstructs the bootstrap payload exactly', () => {
+    const payload = buildSelectedAssetsPayload({
+        manifest: createManifest(),
+        resolvedSelections: createResolvedSelections(),
+        scaffoldId: 'standard-planning-plus-code',
+        techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
+        copiedPaths: [],
+        instantiatedDocs: [],
+        metadataFiles: [],
+        cliName: '@codebasedesigns/project-os',
+        cliVersion: '0.0.1',
+        createdAt: '2026-03-02T00:00:00.000Z',
+        source: {
+            owner: 'swanson-dev',
+            repo: 'ai-project-initialization',
+            ref: 'main',
+            rawBase: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
+            isOverride: false,
+        },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
+        },
+        projectRoot: 'C:/temp/my-project',
+    });
+    const rebuilt = buildBootstrapLockPayloadFromSelectedAssets(payload);
+    assert.deepEqual(rebuilt, buildBootstrapLockPayload({
+        manifest: createManifest(),
+        resolvedSelections: createResolvedSelections(),
+        scaffoldId: 'standard-planning-plus-code',
+        techStackRecipeId: 'nextjs',
+        description: 'A generated project',
+        preferredTechnology: 'nextjs',
+        selectedSkillIds: ['documentation-hygiene'],
+        copiedPaths: [],
+        instantiatedDocs: [],
+        metadataFiles: [],
+        cliName: '@codebasedesigns/project-os',
+        cliVersion: '0.0.1',
+        createdAt: '2026-03-02T00:00:00.000Z',
+        source: {
+            owner: 'swanson-dev',
+            repo: 'ai-project-initialization',
+            ref: 'main',
+            rawBase: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
+            isOverride: false,
+        },
+        tooling: {
+            manifestContractVersionUsedByCli: '1',
+            cliName: '@codebasedesigns/project-os',
+            cliVersion: '0.0.1',
+        },
+        projectRoot: 'C:/temp/my-project',
+    }));
 });

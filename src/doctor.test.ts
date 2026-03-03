@@ -24,6 +24,13 @@ function createSelectedAssetsFixture(): SelectedAssetsPayload {
     project: {
       project_id: null,
       name: 'temp-project',
+      description: 'Generated project',
+      preferred_technology: 'nextjs',
+      product_type: '',
+      selected_skills: ['documentation-hygiene'],
+      initialized_at: '2026-03-02T00:00:00.000Z',
+      cli_version: '0.0.1',
+      code_location: '/app',
     },
     selected: {
       scaffold: 'standard-planning-plus-code',

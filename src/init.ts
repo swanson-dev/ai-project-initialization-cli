@@ -217,6 +217,9 @@ export async function runInit(options: InitOptions): Promise<void> {
         scaffoldId: 'standard-planning-plus-code',
         techStackRecipeId: selections.preferredTechnology,
         productPackId: selections.productPackId || undefined,
+        description: selections.description,
+        preferredTechnology: selections.preferredTechnology,
+        selectedSkillIds: selections.selectedSkillIds,
         copiedPaths: [...copied, ...materializedPaths],
         instantiatedDocs: instantiated,
         metadataFiles: projectMetadataFiles,
@@ -229,6 +232,11 @@ export async function runInit(options: InitOptions): Promise<void> {
           ref: source.refUsed,
           rawBase: source.rawBase,
           isOverride: source.isOverride,
+        },
+        tooling: {
+          manifestContractVersionUsedByCli: '1' as const,
+          cliName: CLI_NAME,
+          cliVersion: CLI_VERSION,
         },
         hashes,
       };

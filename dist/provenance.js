@@ -42,6 +42,13 @@ export function buildSelectedAssetsPayload(input) {
         project: {
             project_id: null,
             name: getProjectName(projectRoot),
+            description: input.description,
+            preferred_technology: input.preferredTechnology,
+            product_type: input.productPackId ?? '',
+            selected_skills: [...input.selectedSkillIds],
+            initialized_at: input.createdAt,
+            cli_version: input.cliVersion,
+            code_location: '/app',
         },
         source: {
             registry: {
@@ -50,6 +57,13 @@ export function buildSelectedAssetsPayload(input) {
                 ref: input.source.ref,
                 raw_base: input.source.rawBase,
                 is_override: input.source.isOverride,
+            },
+        },
+        tooling: {
+            manifest_contract_version_used_by_cli: input.tooling.manifestContractVersionUsedByCli,
+            cli: {
+                name: input.tooling.cliName,
+                version: input.tooling.cliVersion,
             },
         },
         selected: {
@@ -68,6 +82,41 @@ export function buildSelectedAssetsPayload(input) {
             instantiated_docs: [...input.instantiatedDocs],
             metadata_files: sortLex(input.metadataFiles),
             hashes,
+        },
+    };
+}
+export function buildBootstrapLockPayloadFromSelectedAssets(payload) {
+    if (payload.tooling === undefined ||
+        payload.tooling.manifest_contract_version_used_by_cli !== '1' ||
+        typeof payload.tooling.cli.name !== 'string' ||
+        payload.tooling.cli.name.length === 0 ||
+        typeof payload.tooling.cli.version !== 'string' ||
+        payload.tooling.cli.version.length === 0) {
+        throw new Error('selected-assets.json does not include enough tooling metadata to reconstruct .project/bootstrap.lock');
+    }
+    return {
+        registry: {
+            version: payload.registry_version,
+            published_at: payload.published_at,
+            contract_version: payload.contract_version,
+        },
+        selection: {
+            scaffold: payload.selected.scaffold,
+            tech_stack_recipe: payload.selected.tech_stack_recipe,
+            agent_packs: [...payload.selected.agent_packs],
+            skills: [...payload.selected.skills],
+            product_type_packs: [...payload.selected.product_type_packs],
+            registry_docs: [...payload.selected.registry_docs],
+            file_templates: [...payload.selected.file_templates],
+        },
+        instantiated_docs: payload.selected.instantiation_rules.map((rule) => ({
+            template_id: rule.template_id,
+            target: rule.target,
+        })),
+        manifest_contract_version_used_by_cli: payload.tooling.manifest_contract_version_used_by_cli,
+        cli: {
+            name: payload.tooling.cli.name,
+            version: payload.tooling.cli.version,
         },
     };
 }

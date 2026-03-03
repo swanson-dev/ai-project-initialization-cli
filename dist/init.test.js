@@ -238,6 +238,13 @@ test('runInit logs resolved selections as single-line json in debug mode', async
             assert.deepEqual(selectedAssets.project, {
                 project_id: null,
                 name: path.basename(repoPath),
+                description: 'TODO: Add project description',
+                preferred_technology: 'nextjs',
+                product_type: '',
+                selected_skills: ['documentation-hygiene'],
+                initialized_at: selectedAssets.created_at,
+                cli_version: '0.0.1',
+                code_location: '/app',
             });
             assert.deepEqual(selectedAssets.source, {
                 registry: {
@@ -246,6 +253,13 @@ test('runInit logs resolved selections as single-line json in debug mode', async
                     ref: 'main',
                     raw_base: 'https://raw.githubusercontent.com/swanson-dev/ai-project-initialization/main',
                     is_override: false,
+                },
+            });
+            assert.deepEqual(selectedAssets.tooling, {
+                manifest_contract_version_used_by_cli: '1',
+                cli: {
+                    name: '@codebasedesigns/project-os',
+                    version: '0.0.1',
                 },
             });
             assert.deepEqual(selectedAssets.selected, {
@@ -335,6 +349,21 @@ test('runInit logs resolved selections as single-line json in debug mode', async
                     name: '@codebasedesigns/project-os',
                     version: '0.0.1',
                 },
+            });
+            const projectConfig = JSON.parse(await fs.readFile(projectConfigPath, 'utf8'));
+            assert.deepEqual(projectConfig, {
+                project_name: path.basename(repoPath),
+                description: 'TODO: Add project description',
+                preferred_technology: 'nextjs',
+                product_type: '',
+                selected_skills: ['documentation-hygiene'],
+                registry_version: '0.2.0',
+                registry_ref: 'main',
+                registry_owner: 'swanson-dev',
+                registry_repo: 'ai-project-initialization-registry',
+                cli_version: '0.0.1',
+                initialized_at: selectedAssets.created_at,
+                code_location: '/app',
             });
         }
         finally {

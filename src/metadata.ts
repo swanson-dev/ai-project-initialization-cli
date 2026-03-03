@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ensureTrackedDir, recordCreatedFile, WriteContext } from './write-context.js';
 
-type MetadataInput = {
+export type MetadataInput = {
   description: string;
   preferredTechnology: string;
   productPackId: string;
@@ -11,11 +11,31 @@ type MetadataInput = {
   registryRef: string;
   cliVersion: string;
   createdAt?: string;
+  projectName?: string;
 };
+
+export function buildProjectConfigPayload(input: MetadataInput): Record<string, unknown> {
+  const now = input.createdAt ?? new Date().toISOString();
+  const projectName = input.projectName ?? path.basename(process.cwd());
+
+  return {
+    project_name: projectName,
+    description: input.description,
+    preferred_technology: input.preferredTechnology,
+    product_type: input.productPackId,
+    selected_skills: input.selectedSkillIds,
+    registry_version: input.registryVersion,
+    registry_ref: input.registryRef,
+    registry_owner: 'swanson-dev',
+    registry_repo: 'ai-project-initialization-registry',
+    cli_version: input.cliVersion,
+    initialized_at: now,
+    code_location: '/app',
+  };
+}
 
 export async function writeMetadataFiles(input: MetadataInput, context?: WriteContext): Promise<string[]> {
   const now = input.createdAt ?? new Date().toISOString();
-  const projectName = path.basename(process.cwd());
 
   if (context) {
     await ensureTrackedDir('.project', context);
@@ -34,20 +54,10 @@ export async function writeMetadataFiles(input: MetadataInput, context?: WriteCo
   await fs.writeFile(
     projectConfigPath,
     JSON.stringify(
-      {
-        project_name: projectName,
-        description: input.description,
-        preferred_technology: input.preferredTechnology,
-        product_type: input.productPackId,
-        selected_skills: input.selectedSkillIds,
-        registry_version: input.registryVersion,
-        registry_ref: input.registryRef,
-        registry_owner: 'swanson-dev',
-        registry_repo: 'ai-project-initialization-registry',
-        cli_version: input.cliVersion,
-        initialized_at: now,
-        code_location: '/app',
-      },
+      buildProjectConfigPayload({
+        ...input,
+        createdAt: now,
+      }),
       null,
       2,
     ) + '\n',

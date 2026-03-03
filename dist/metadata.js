@@ -1,22 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ensureTrackedDir, recordCreatedFile } from './write-context.js';
-export async function writeMetadataFiles(input, context) {
+export function buildProjectConfigPayload(input) {
     const now = input.createdAt ?? new Date().toISOString();
-    const projectName = path.basename(process.cwd());
-    if (context) {
-        await ensureTrackedDir('.project', context);
-        await ensureTrackedDir('agents', context);
-    }
-    else {
-        await fs.mkdir(path.join(process.cwd(), '.project'), { recursive: true });
-        await fs.mkdir(path.join(process.cwd(), 'agents'), { recursive: true });
-    }
-    const projectConfigRelativePath = '.project/project.config.json';
-    const agentsManifestRelativePath = 'agents/manifest.json';
-    const projectConfigPath = path.join(process.cwd(), projectConfigRelativePath);
-    const agentsManifestPath = path.join(process.cwd(), agentsManifestRelativePath);
-    await fs.writeFile(projectConfigPath, JSON.stringify({
+    const projectName = input.projectName ?? path.basename(process.cwd());
+    return {
         project_name: projectName,
         description: input.description,
         preferred_technology: input.preferredTechnology,
@@ -29,7 +17,26 @@ export async function writeMetadataFiles(input, context) {
         cli_version: input.cliVersion,
         initialized_at: now,
         code_location: '/app',
-    }, null, 2) + '\n');
+    };
+}
+export async function writeMetadataFiles(input, context) {
+    const now = input.createdAt ?? new Date().toISOString();
+    if (context) {
+        await ensureTrackedDir('.project', context);
+        await ensureTrackedDir('agents', context);
+    }
+    else {
+        await fs.mkdir(path.join(process.cwd(), '.project'), { recursive: true });
+        await fs.mkdir(path.join(process.cwd(), 'agents'), { recursive: true });
+    }
+    const projectConfigRelativePath = '.project/project.config.json';
+    const agentsManifestRelativePath = 'agents/manifest.json';
+    const projectConfigPath = path.join(process.cwd(), projectConfigRelativePath);
+    const agentsManifestPath = path.join(process.cwd(), agentsManifestRelativePath);
+    await fs.writeFile(projectConfigPath, JSON.stringify(buildProjectConfigPayload({
+        ...input,
+        createdAt: now,
+    }), null, 2) + '\n');
     if (context) {
         recordCreatedFile(context, projectConfigRelativePath);
     }
